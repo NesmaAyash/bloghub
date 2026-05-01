@@ -70,9 +70,8 @@ const [pendingAvatarFile, setPendingAvatarFile] = useState<File | null>(null);
     let finalAvatar = avatar;
     if (pendingAvatarFile) {
       const response = await authorService.uploadAvatar(user.id, pendingAvatarFile);
-      finalAvatar = `http://localhost:5016${response.avatar}?t=${Date.now()}`;
-      setAvatar(finalAvatar);
-      setPendingAvatarFile(null);
+const BACKEND_BASE = ((import.meta as any).env?.VITE_API_URL || 'http://localhost:5016/api').replace('/api', '');
+const fullAvatarUrl = `${BACKEND_BASE}${response.avatar}?t=${Date.now()}`;      setPendingAvatarFile(null);
     }
 
     // ✅ حدّث باقي البيانات

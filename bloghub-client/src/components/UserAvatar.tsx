@@ -15,8 +15,7 @@ const sizeClasses = {
   xl: 'h-32 w-32 text-4xl',
 };
 
-const BACKEND_URL = 'http://localhost:5016';
-
+const BACKEND_URL = ((import.meta as any).env?.VITE_API_URL || 'http://localhost:5016/api').replace('/api', '');
 // ✅ تحويل المسار النسبي إلى URL كامل
 function getFullAvatarUrl(avatar?: string | null): string | null {
   if (!avatar || avatar.trim() === '') return null;
