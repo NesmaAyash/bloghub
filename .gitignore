@@ -1,0 +1,34 @@
+# ===== Backend (.NET) =====
+**/bin/
+**/obj/
+**/.vs/
+*.user
+*.suo
+*.cache
+appsettings.Development.json
+
+# ===== Frontend (Node) =====
+**/node_modules/
+**/dist/
+**/build/
+**/.next/
+**/.env.local
+**/.env.development
+**/.env.production
+
+# ===== System Files =====
+.DS_Store
+Thumbs.db
+
+# ===== IDE =====
+.vscode/
+.idea/
+
+# ===== Logs =====
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ===== Uploaded Images (مهم!) =====
+**/wwwroot/Images/
