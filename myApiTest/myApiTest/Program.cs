@@ -40,6 +40,10 @@ builder.Services.AddDbContext<BlogDbContext>(
         builder.Configuration.GetConnectionString("Connection")
    ) );
 
+builder.Services.Configure<Microsoft.AspNetCore.Mvc.MvcOptions>(options =>
+{
+    options.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true;
+});
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(
     options =>

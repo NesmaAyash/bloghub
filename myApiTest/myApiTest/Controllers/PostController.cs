@@ -64,7 +64,9 @@ namespace myApiTest.Controllers
                             Title = post.Title,
                             Content = post.Content,
                             AuthorId = authorId,
-                            Excerpt = post.Excerpt,
+                            Excerpt = !string.IsNullOrWhiteSpace(post.Excerpt)
+                            ? post.Excerpt
+                           : GenerateExcerpt(post.Content ?? ""),
                             CoverImage = coverImage,
                             Category = post.Category,
                             Tags = System.Text.Json.JsonSerializer.Serialize(post.Tags),
@@ -92,6 +94,26 @@ namespace myApiTest.Controllers
                     message = "something went wrong"
                 });
             }
+        }
+
+        // 🆕 Helper method (ضيفها في نفس الـ Controller)
+        private string GenerateExcerpt(string content, int maxLength = 150)
+        {
+            if (string.IsNullOrWhiteSpace(content))
+                return string.Empty;
+
+            var plainText = System.Text.RegularExpressions.Regex.Replace(content, "<.*?>", string.Empty);
+
+            if (plainText.Length <= maxLength)
+                return plainText.Trim();
+
+            var trimmed = plainText.Substring(0, maxLength);
+            var lastSpace = trimmed.LastIndexOf(' ');
+
+            if (lastSpace > 0)
+                trimmed = trimmed.Substring(0, lastSpace);
+
+            return trimmed.Trim() + "...";
         }
 
         [HttpGet("{id}")]

@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.Runtime.InteropServices;
 
 namespace myApiTest.Models
 {
@@ -7,6 +8,7 @@ namespace myApiTest.Models
         [Key]
         public int Id { get; set; }
         public string Title { get; set; } = string.Empty;
+        
         public string Excerpt { get; set; } = string.Empty;
         public string Content { get; set; } = string.Empty;
         public string CoverImage { get; set; }

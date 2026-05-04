@@ -7,7 +7,7 @@ namespace myApiTest.DTOs
         public int Id { get; set; }
         [Required]
         public string Title { get; set; } = string.Empty;
-        public string Excerpt { get; set; } = string.Empty;
+        public string? Excerpt { get; set; } = string.Empty;
         public string Content { get; set; } = string.Empty;
         public IFormFile? CoverImage { get; set; }
         public string AuthorId { get; set; } = string.Empty; 
