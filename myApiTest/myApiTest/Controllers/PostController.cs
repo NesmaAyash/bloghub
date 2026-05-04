@@ -151,54 +151,72 @@ namespace myApiTest.Controllers
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdatePost(int id ,[FromForm] CreatePostDto post)
+        [Authorize]
+        public async Task<IActionResult> UpdatePost(int id, [FromForm] CreatePostDto post)
         {
-            if (ModelState.IsValid)
+            try
             {
+                if (!ModelState.IsValid)
+                {
+                    return BadRequest(new { message = "Invalid data", errors = ModelState });
+                }
 
-                var postExist = _blogDb.Posts.Where(x => x.Id == id).FirstOrDefault();
-                //var imageName =  _image.Upload(post.CoverImage);
+                var postExist = await _blogDb.Posts.FirstOrDefaultAsync(x => x.Id == id);
 
                 if (postExist == null)
                 {
-                    return NotFound("Post not Exists");
+                    return NotFound(new { message = "Post not found" });
                 }
+
                 var authorId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
                 if (postExist.AuthorId != authorId)
                 {
                     return Forbid();
                 }
 
-                string coverImage = postExist.CoverImage; 
+                string coverImage = postExist.CoverImage;
                 if (post.CoverImage != null)
                 {
                     var fileName = _image.Upload(post.CoverImage);
                     coverImage = $"{Request.Scheme}://{Request.Host}/Images/{fileName}";
                 }
 
-                postExist.Title = post.Title;
-                postExist.Content = post.Content;
-                postExist.Excerpt = post.Excerpt;
+                postExist.Title = post.Title ?? postExist.Title;
+                postExist.Content = post.Content ?? postExist.Content;
+
+                postExist.Excerpt = !string.IsNullOrWhiteSpace(post.Excerpt)
+                    ? post.Excerpt
+                    : (!string.IsNullOrWhiteSpace(post.Content)
+                        ? GenerateExcerpt(post.Content)
+                        : postExist.Excerpt);
+
                 postExist.CoverImage = coverImage;
-                postExist.Category = post.Category;
-                postExist.Tags = System.Text.Json.JsonSerializer.Serialize(post.Tags);
-                postExist.Status = post.Status;
+                postExist.Category = post.Category ?? postExist.Category;
+
+                if (post.Tags != null)
+                {
+                    postExist.Tags = System.Text.Json.JsonSerializer.Serialize(post.Tags);
+                }
+
+                postExist.Status = post.Status ?? postExist.Status;
                 postExist.Featured = post.Featured;
+
                 if (post.Status == "published" && postExist.PublishedAt == null)
+                {
                     postExist.PublishedAt = DateTime.UtcNow;
-                _blogDb.SaveChanges();
+                }
+
+                await _blogDb.SaveChangesAsync();
+
                 return Ok(new { message = "Post Updated Successfully" });
-
             }
-
-            else
+            catch (Exception ex)
             {
-                return BadRequest(
-                       new
-                       {
-                           message = "Unvalid Author"
-                       }
-                      );
+                return StatusCode(500, new
+                {
+                    message = "Error updating post",
+                    details = ex.Message
+                });
             }
         }
 
