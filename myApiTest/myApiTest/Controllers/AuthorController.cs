@@ -101,7 +101,7 @@ namespace myApiTest.Controllers
         }
 
 
-        [HttpGet("api/auth/me")]
+        [HttpGet("/api/auth/me")]
         [Authorize]
         public async Task<IActionResult> GetCurrentUser()
         {
