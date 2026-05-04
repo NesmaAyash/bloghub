@@ -346,7 +346,7 @@ namespace myApiTest.Controllers
             }
         }
 
-        [HttpPost("{id:int}/avatar")]
+        /*[HttpPost("{id:int}/avatar")]
         [Authorize]
         public async Task<IActionResult> UploadAvatar(int id , IFormFile file)
         {
@@ -389,6 +389,62 @@ namespace myApiTest.Controllers
 
                 author.Avatar = $"/Images/Avatars/{fileName}";
                 await _blogDbContext.SaveChangesAsync();
+                return Ok(new { avatar = author.Avatar, message = "Avatar uploaded successfully" });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }*/
+
+        [HttpPost("{id:int}/avatar")]
+        [Authorize]
+        public async Task<IActionResult> UploadAvatar(int id, IFormFile file)
+        {
+            try
+            {
+                var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+                if (currentUserId == 0 || file.Length == 0)
+                {
+                    return BadRequest(new { message = "No file uploaded" });
+                }
+
+                var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
+                var extension = Path.GetExtension(file.FileName).ToLower();
+                if (!allowedExtensions.Contains(extension))
+                {
+                    return BadRequest(new { message = "Only image files are allowed" });
+                }
+
+                if (file.Length > 2 * 1024 * 1024)
+                {
+                    return BadRequest(new { message = "File size must be less than 2MB" });
+                }
+
+                var author = await _blogDbContext.Authors.FindAsync(id);
+                if (author == null)
+                {
+                    return NotFound();
+                }
+
+                var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "Images", "Avatars");
+                if (!Directory.Exists(uploadsFolder))
+                {
+                    Directory.CreateDirectory(uploadsFolder);
+                }
+
+                var fileName = $"{Guid.NewGuid()}{extension}";
+                var filePath = Path.Combine(uploadsFolder, fileName);
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await file.CopyToAsync(stream);
+                }
+
+                var baseUrl = $"{Request.Scheme}://{Request.Host}";
+                author.Avatar = $"{baseUrl}/Images/Avatars/{fileName}";
+
+                await _blogDbContext.SaveChangesAsync();
+
                 return Ok(new { avatar = author.Avatar, message = "Avatar uploaded successfully" });
             }
             catch (Exception ex)
