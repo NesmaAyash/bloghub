@@ -25,49 +25,7 @@ namespace myApiTest.Controllers
             _blogDbContext = blogDbContext;
             _configuration = configuration;
         }
-        /*
-                [HttpPost("register")]
-                public async Task<ActionResult> Register([FromBody]RegisterDto register)
-                {
-                    var sameEmailRegister = _blogDbContext.Authors.Where(x => x.Email == register.Email).FirstOrDefault();
-                    if (ModelState.IsValid)
-                    {
-                        if (sameEmailRegister != null)
-                        {
-                            return BadRequest("هذا البريد الإلكتروني مستخدم بالفعل.");
-                        }
-
-                        if (register.Password != register.ConfirmPassword)
-                        {
-                            return Unauthorized("كلمة مرور غير متطابقة !");
-                        }
-
-                        var author = new Author
-                        {
-                           Name = register.Name,
-
-                            Email = register.Email,
-                           // age = register.age,
-                            Password = BCrypt.Net.BCrypt.HashPassword(register.Password)
-
-                        };
-
-
-                        _blogDbContext.Authors.Add(author);
-                        await _blogDbContext.SaveChangesAsync();
-                        return Ok(new { message = "تم التسجيل بنجاح!" });
-                    }
-                    else
-                    {
-                        return BadRequest(new
-                        {
-                            message = "Something Went wrong"
-                        });
-                    }
-
-
-                }
-        */
+   
         [HttpPost("register")]
         public async Task<ActionResult> Register([FromBody] RegisterDto register)
         {
@@ -109,33 +67,7 @@ namespace myApiTest.Controllers
         }
 
 
-        /*[HttpPost("login")]
-        public async Task<ActionResult> Login([FromBody] LoginDto loginData)
-        {
-            var author = await _blogDbContext.Authors.FirstOrDefaultAsync(e => e.Email == loginData.Email);
-            if (author == null || !BCrypt.Net.BCrypt.Verify(loginData.Password, author.Password))
-            {
-                return Unauthorized("بيانات خاطئة !");
-
-            }
-            return Ok(new
-            {
-                id = author.Id,
-                name = author.Name,
-                email = author.Email,
-                role = "author" // أو من الـ database
-            });
-        }
-        */
-        /*
-        [HttpPost("logout")]
-        public IActionResult Logout()
-        {
-           
-            Response.Cookies.Delete("token");
-
-            return Ok(new { message = "Logged out successfully" });
-        }*/
+    
 
         [HttpPost("login")]
         public async Task<ActionResult> Login([FromBody] LoginDto loginData)
@@ -169,35 +101,48 @@ namespace myApiTest.Controllers
         }
 
 
-        // ==================== JWT GENERATOR ====================
-        private string GenerateJwtToken(Author author)
+        [HttpGet("api/auth/me")]
+        [Authorize]
+        public async Task<IActionResult> GetCurrentUser()
         {
-            var key = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!));
-
-            var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-            var claims = new[]
+            try
             {
-                new Claim(ClaimTypes.NameIdentifier, author.Id.ToString()),
-                new Claim(ClaimTypes.Name, author.Name),
-                new Claim(ClaimTypes.Email, author.Email),
-                new Claim(ClaimTypes.Role, author.Role ?? "author")  
-            };
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
+                {
+                    return Unauthorized(new { message = "Invalid token" });
+                }
+                var author = await _blogDbContext.Authors
+                .Where(a => a.Id == userId)
+                .Select(a => new
+                {
+                    id = a.Id,
+                    name = a.Name,
+                    email = a.Email,
+                    bio = a.Bio,
+                    avatar = a.Avatar,
+                    role = a.Role,
+                    status = a.Status,
+                    joinedAt = a.CreatedAt,
+                    articlesCount = _blogDbContext.Posts.Count(p => p.AuthorId == a.Id)
+                }).FirstOrDefaultAsync();
 
-            var token = new JwtSecurityToken(
-                issuer: _configuration["Jwt:Issuer"],
-                audience: _configuration["Jwt:Audience"],
-                claims: claims,
-                expires: DateTime.UtcNow.AddDays(
-                    int.Parse(_configuration["Jwt:ExpiryInDays"]!)),
-                signingCredentials: credentials
-            );
+                if (author == null)
+                {
+                    return NotFound(new { message = "User not found" });
+                }
 
-            return new JwtSecurityTokenHandler().WriteToken(token);
+                return Ok(author);
+
+            }
+
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+
+            }
         }
-
-        [HttpPut("{id}")]
+            [HttpPut("{id}")]
         [Authorize]
         public async Task<IActionResult> UpdateProfile(int id, [FromBody] UpdateProfileDto updateData)
         {
@@ -450,6 +395,35 @@ namespace myApiTest.Controllers
             {
                 return BadRequest(new { message = ex.Message });
             }
+        }
+
+
+        // ==================== JWT GENERATOR ====================
+        private string GenerateJwtToken(Author author)
+        {
+            var key = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!));
+
+            var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+            var claims = new[]
+            {
+                new Claim(ClaimTypes.NameIdentifier, author.Id.ToString()),
+                new Claim(ClaimTypes.Name, author.Name),
+                new Claim(ClaimTypes.Email, author.Email),
+                new Claim(ClaimTypes.Role, author.Role ?? "author")
+            };
+
+            var token = new JwtSecurityToken(
+                issuer: _configuration["Jwt:Issuer"],
+                audience: _configuration["Jwt:Audience"],
+                claims: claims,
+                expires: DateTime.UtcNow.AddDays(
+                    int.Parse(_configuration["Jwt:ExpiryInDays"]!)),
+                signingCredentials: credentials
+            );
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
     }
