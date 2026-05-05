@@ -151,6 +151,76 @@ namespace myApiTest.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
+
+        [HttpGet("all")]
+        [Authorize]
+        public async Task<IActionResult> GetAllComments()
+        {
+            try
+            {
+                var userRole = User.FindFirst(ClaimTypes.Role)?.Value;
+                if(userRole != "admin")
+                {
+                    return Forbid();
+                }
+
+                var comments = await _blogDb.Comments
+          .Include(c => c.Author)
+          .Include(c => c.Post)
+          .OrderByDescending(c => c.CreatedAt)
+          .Select(c => new
+          {
+              id = c.Id,
+              content = c.Content,
+              createdAt = c.CreatedAt,
+              authorId = c.AuthorId,
+              authorName = c.Author.Name,
+              authorAvatar = c.Author.Avatar ?? "",
+              postId = c.PostId,
+              postTitle = c.Post.Title
+          })
+          .ToListAsync();
+
+                return Ok(new { comments });
+
+            }
+
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpDelete]
+        [Authorize]
+        public async Task<IActionResult> AdminDeleteComment(int id)
+        {
+            try
+            {
+                var userRole = User.FindFirst(ClaimTypes.Role)?.Value;
+                if (userRole != "admin")
+                {
+                    return Forbid();
+                }
+
+                var comment = await _blogDb.Comments.FindAsync(id);
+                if (comment == null)
+                    return NotFound(new { message = "Comment not found" });
+
+                _blogDb.Comments.Remove(comment);
+
+                var post = await _blogDb.Posts.FindAsync(comment.PostId);
+                if (post != null)
+                    post.CommentsCount = Math.Max(0, post.CommentsCount - 1);
+
+                await _blogDb.SaveChangesAsync();
+                return Ok(new { message = "Comment deleted by admin" });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
    
     }
 }
