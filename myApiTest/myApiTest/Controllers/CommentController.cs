@@ -191,7 +191,7 @@ namespace myApiTest.Controllers
             }
         }
 
-        [HttpDelete]
+        [HttpDelete("admin/{id}")]
         [Authorize]
         public async Task<IActionResult> AdminDeleteComment(int id)
         {
