@@ -27,7 +27,7 @@ namespace myApiTest.Controllers
         {
             try
             {
-                var comments = await _blogDb.Comments.Include(x => x.Author).Where(x => x.Id == postId)
+                var comments = await _blogDb.Comments.Include(x => x.Author).Where(x => x.PostId == postId)
                     .OrderByDescending(x => x.CreatedAt).Select(x => new CommentDto
                     {
                         Id = x.Id,
@@ -35,7 +35,7 @@ namespace myApiTest.Controllers
                         PostId = x.PostId,
                         AuthorId = x.AuthorId,
                         AuthorName = x.Author.Name,
-                        AuthorAvatar = x.Author.Avatar ?? "",                        //CreatedAt = x.CreatedAt.ToString("o")
+                        AuthorAvatar = x.Author.Avatar ?? "",  
                     }).ToListAsync();
                 return Ok(comments);
             }
@@ -46,7 +46,7 @@ namespace myApiTest.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateComment([FromBody]CommentDto comment) 
+        public async Task<IActionResult> CreateComment([FromBody]CreateCommentDto comment) 
         {
             try
             {
@@ -55,65 +55,59 @@ namespace myApiTest.Controllers
                     return BadRequest(ModelState);
 
                 }
-                var authorId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
-                var postExists =await _blogDb.Posts.AnyAsync(x => x.Id == comment.PostId);
+
+                var authorIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(authorIdClaim) || !int.TryParse(authorIdClaim, out int authorId))
+                    return Unauthorized(new { message = "Invalid token" });
+
                 var post = await _blogDb.Posts.FindAsync(comment.PostId);
-                if(post != null && post.AuthorId != authorId)
+                if (post == null)
+                    return NotFound(new { message = "Post not found" });
+
+                var author = await _blogDb.Authors.FindAsync(authorId);
+                if (author == null)
+                    return Unauthorized(new { message = "Author not found" });
+
+                var newComment = new Comment
                 {
-                    var commenter = await _blogDb.Authors.FindAsync(authorId);
-                    var notification = new Notification 
+                    Content = comment.Content,
+                    PostId = comment.PostId,
+                    AuthorId = authorId,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                _blogDb.Comments.Add(newComment);
+                await _blogDb.SaveChangesAsync();
+
+                post.CommentsCount += 1;
+
+
+
+                if (post.AuthorId != authorId)
+                {
+                    var notification = new Notification
                     {
                         Type = "comment",
                         Title = "New Comment",
-                        Message = $"{commenter?.Name} commented on your article",
+                        Message = $"{author.Name} commented on your article",
                         UserId = post.AuthorId,
                         PostId = post.Id,
                     };
-
                     _blogDb.Notifications.Add(notification);
-                    await _blogDb.SaveChangesAsync();
                 }
-                
-                if (postExists == null)
-                    {
-                        return NotFound(new { message = "Post not found" });
-                    }
+                await _blogDb.SaveChangesAsync();
 
-                    var newComment = new Comment
-                    {
-                        Content = comment.Content,
-                        PostId = comment.PostId,
-                        AuthorId = authorId,
-                    };
 
-                    _blogDb.Comments.Add(newComment);
-                   await _blogDb.SaveChangesAsync();
-                var articlepost = await _blogDb.Posts.FindAsync(comment.PostId);
-                if (articlepost != null)
-                {
-                    articlepost.CommentsCount += 1;
-                    await _blogDb.SaveChangesAsync();
-                }
-
-                var author = await _blogDb.Authors
-                             .Where(a => a.Id == authorId)
-                             .Select(a => new { a.Name, a.Avatar })
-                             .FirstOrDefaultAsync();
-
-                var authorName = author?.Name ?? "";
-                var authorAvatar = author?.Avatar ?? "";
-
-                //  var author = await _blogDb.Authors.FindAsync(authorId);
                 return Ok(new
                     {
                         comment = new CommentDto
                         {
-                            Id = comment.Id,
+                            Id = newComment.Id,
                             Content = comment.Content,
                             PostId = comment.PostId,
-                            AuthorId = comment.AuthorId,
-                            AuthorName = authorName,
-                            AuthorAvatar = authorAvatar,
+                            AuthorId = newComment.AuthorId,
+                            AuthorName = author.Name,
+                            AuthorAvatar = author.Avatar,
                         }
                     });
                 
