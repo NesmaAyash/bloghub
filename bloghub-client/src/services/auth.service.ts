@@ -88,7 +88,8 @@ class AuthService {
   async getCurrentUser(): Promise<UserDto> {
     try {
       const response = await apiClient.get<UserDto>(API_ENDPOINTS.AUTH.ME);
-      localStorage.setItem('Author', JSON.stringify(response.data));
+      //localStorage.setItem('Author', JSON.stringify(response.data));
+      localStorage.setItem('user', JSON.stringify(response.data));
       return response.data;
     } catch (error) {
       throw new Error(handleApiError(error));
@@ -119,7 +120,8 @@ class AuthService {
       const { token, refreshToken: newRefreshToken, ...userData } = response.data;
       localStorage.setItem('accessToken', token);
       localStorage.setItem('refreshToken', newRefreshToken);
-      localStorage.setItem('Author', JSON.stringify(userData));
+      localStorage.setItem('user', JSON.stringify(userData));
+
 
       return response.data;
     } catch (error) {

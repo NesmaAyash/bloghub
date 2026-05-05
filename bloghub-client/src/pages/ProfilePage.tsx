@@ -61,7 +61,7 @@ const [pendingAvatarFile, setPendingAvatarFile] = useState<File | null>(null);
   };
 
   // ✅ handleSave مربوط بالـ API
- const handleSave = async () => {
+ /*const handleSave = async () => {
   if (!user) return;
   try {
     setIsSaving(true);
@@ -100,6 +100,60 @@ const fullAvatarUrl = `${BACKEND_BASE}${response.avatar}?t=${Date.now()}`;      
     toast.success('Profile updated successfully!');
   };
 */
+
+const handleSave = async () => {
+  if (!user) return;
+  
+  // ✅ Email validation
+  if (email && !email.includes('@')) {
+    toast.error('Please enter a valid email');
+    return;
+  }
+  
+  try {
+    setIsSaving(true);
+
+    // ✅ ارفع الصورة أولاً لو فيه صورة جديدة
+    let finalAvatar = avatar;
+    if (pendingAvatarFile) {
+      const response = await authorService.uploadAvatar(user.id, pendingAvatarFile);
+      const BACKEND_BASE = ((import.meta as any).env?.VITE_API_URL || 'http://localhost:5016/api').replace('/api', '');
+      
+      const avatarPath = response.avatar;
+      finalAvatar = avatarPath.startsWith('http') 
+        ? `${avatarPath}?t=${Date.now()}` 
+        : `${BACKEND_BASE}${avatarPath}?t=${Date.now()}`;
+      
+      setPendingAvatarFile(null);
+    }
+
+    // ✅ حدّث البيانات في Backend (مع email!)
+    const apiResponse = await apiClient.put(`/Author/${user.id}`, { 
+      name, 
+      email,    // ✅ أضفنا email
+      bio 
+    });
+    
+    // ✅ استخدم البيانات الراجعة من الـ Backend
+    const updatedData = apiResponse.data;
+    
+    // ✅ حدّث AuthContext + localStorage عبر updateProfile
+    await updateProfile({ 
+      name: updatedData.name || name, 
+      email: updatedData.email || email,
+      bio: updatedData.bio !== undefined ? updatedData.bio : bio,
+      avatar: finalAvatar 
+    });
+
+    setIsEditing(false);
+    toast.success('Profile updated successfully!');
+  } catch (error: any) {
+    const errorMessage = error?.response?.data?.message || 'Failed to update profile';
+    toast.error(errorMessage);
+  } finally {
+    setIsSaving(false);
+  }
+};
 const handleCancel = () => {
   setName(user?.name || '');
   setEmail(user?.email || '');

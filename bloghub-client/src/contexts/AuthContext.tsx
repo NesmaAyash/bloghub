@@ -138,38 +138,45 @@ const register = async (name: string, email: string, password: string): Promise<
   }
 };
 
-  const updateProfile = async (updates: Partial<User>): Promise<void> => {
-    if (!user) return;
+const updateProfile = async (updates: Partial<User>): Promise<void> => {
+  if (!user) return;
+  
+  try {
+    // ✅ Update React state
+    const updatedUser = { ...user, ...updates };
+    setUser(updatedUser);
     
-    try {
-      // Optimistically update UI
-      setUser({ ...user, ...updates });
-      
-      // Call backend API
-      // Note: You'll need to implement the actual API call in userService
-      // await userService.updateProfile(user.id, updates);
-      
-      toast.success('Profile updated successfully');
-    } catch (error) {
-      // Revert on error
-      const storedUser = authService.getStoredUser();
-      if (storedUser) {
-        const revertedUser: User = {
-          id: storedUser.id,
-          name: storedUser.name,
-          email: storedUser.email,
-          role: storedUser.role.toLowerCase() as UserRole,
-          avatar: storedUser.avatar,
-          bio: storedUser.bio,
-        };
-        setUser(revertedUser);
-      }
-      
-      const errorMessage = error instanceof Error ? error.message : 'Failed to update profile';
-      toast.error(errorMessage);
-      throw error;
+    // ✅ Update localStorage بنفس الـ format المتوقع
+    const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+    const newStoredUser = {
+      ...storedUser,
+      name: updatedUser.name,
+      email: updatedUser.email,
+      bio: updatedUser.bio,
+      avatar: updatedUser.avatar,
+      role: updatedUser.role,
+    };
+    localStorage.setItem('user', JSON.stringify(newStoredUser));
+    
+    // ⚠️ ما نعرض toast هنا لأن handleSave في ProfilePage يعرضها بنفسه
+    // (تجنّب رسالتين)
+  } catch (error) {
+    // Revert on error
+    const storedUser = authService.getStoredUser();
+    if (storedUser) {
+      const revertedUser: User = {
+        id: storedUser.id,
+        name: storedUser.name,
+        email: storedUser.email,
+        role: (storedUser.role ?? 'author').toLowerCase() as UserRole,
+        avatar: storedUser.avatar,
+        bio: storedUser.bio,
+      };
+      setUser(revertedUser);
     }
-  };
+    throw error;
+  }
+};
 
   const userRole: UserRole = user?.role || 'visitor';
 
