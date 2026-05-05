@@ -142,7 +142,8 @@ namespace myApiTest.Controllers
 
             }
         }
-            [HttpPut("{id}")]
+           
+        [HttpPut("{id}")]
         [Authorize]
         public async Task<IActionResult> UpdateProfile(int id, [FromBody] UpdateProfileDto updateData)
         {
@@ -155,10 +156,25 @@ namespace myApiTest.Controllers
             if (author == null)
                 return NotFound();
 
-            author.Name = updateData.Name;
-            author.Bio = updateData.Bio ?? author.Bio;
+            if (!string.IsNullOrWhiteSpace(updateData.Email) && updateData.Email != author.Email)
+            {
+                var emailExists = await _blogDbContext.Authors
+                    .AnyAsync(a => a.Email == updateData.Email && a.Id != id);
+
+                if (emailExists)
+                    return BadRequest(new { message = "هذا البريد الإلكتروني مستخدم بالفعل" });
+
+                author.Email = updateData.Email;
+            }
+
+            if (!string.IsNullOrWhiteSpace(updateData.Name))
+                author.Name = updateData.Name;
+
+            if (updateData.Bio != null)
+                author.Bio = updateData.Bio;
 
             await _blogDbContext.SaveChangesAsync();
+
 
             return Ok(new
             {
@@ -167,7 +183,7 @@ namespace myApiTest.Controllers
                 email = author.Email,
                 bio = author.Bio,
                 avatar = author.Avatar,  
-                role = "author"
+                role = author.Role,
             });
         }
 
