@@ -1,153 +1,105 @@
-import { useState } from 'react';
-import { mockReports, mockArticles, Report } from '../data/mockData';
+import { useState, useEffect } from 'react';
+import apiClient from '../services/api.client';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../components/ui/select';
-import { Textarea } from '../components/ui/textarea';
 import { Separator } from '../components/ui/separator';
 import { toast } from 'sonner';
+import { UserAvatar } from '../components/UserAvatar';
 import { 
-  AlertTriangle, 
   CheckCircle, 
-  XCircle, 
   Eye,
   Trash2,
-  Flag,
+  MessageCircle,
   Clock,
-  ArrowLeft
+  ArrowLeft,
+  FileText
 } from 'lucide-react';
 
+interface Comment {
+  id: number;
+  content: string;
+  createdAt: string;
+  authorId: number;
+  authorName: string;
+  authorAvatar: string;
+  postId: number;
+  postTitle: string;
+}
+
 interface ContentModerationPageProps {
-  onNavigate: (page: string) => void;
+  onNavigate: (page: string, id?: any) => void;
 }
 
 export function ContentModerationPage({ onNavigate }: ContentModerationPageProps) {
-  const [reports, setReports] = useState(mockReports);
-  const [selectedReport, setSelectedReport] = useState<Report | null>(null);
-  const [moderationNote, setModerationNote] = useState('');
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
-  const pendingReports = reports.filter(r => r.status === 'pending');
-  const reviewedReports = reports.filter(r => r.status === 'reviewed');
-  const resolvedReports = reports.filter(r => r.status === 'resolved');
+  useEffect(() => {
+    fetchComments();
+  }, []);
 
-  const handleApprove = (reportId: string) => {
-    setReports(reports.map(r => 
-      r.id === reportId ? { ...r, status: 'resolved' as const } : r
-    ));
-    toast.success('Report approved and resolved');
-    setSelectedReport(null);
-    setModerationNote('');
-  };
-
-  const handleReject = (reportId: string) => {
-    setReports(reports.map(r => 
-      r.id === reportId ? { ...r, status: 'reviewed' as const } : r
-    ));
-    toast.success('Report rejected');
-    setSelectedReport(null);
-    setModerationNote('');
-  };
-
-  const handleDeleteContent = (reportId: string) => {
-    setReports(reports.map(r => 
-      r.id === reportId ? { ...r, status: 'resolved' as const } : r
-    ));
-    toast.success('Content deleted and report resolved');
-    setSelectedReport(null);
-    setModerationNote('');
-  };
-
-  const getReportedContent = (report: Report) => {
-    if (report.contentType === 'article') {
-      return mockArticles.find(a => a.id === report.contentId);
+  const fetchComments = async () => {
+    try {
+      setIsLoading(true);
+      const response = await apiClient.get('/Comment/all');
+      setComments(response.data.comments || []);
+    } catch (error: any) {
+      const message = error?.response?.data?.message || 'Failed to load comments';
+      toast.error(message);
+      setComments([]);
+    } finally {
+      setIsLoading(false);
     }
-    return null;
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm('Are you sure you want to delete this comment? This action cannot be undone.')) {
+      return;
+    }
+    
+    try {
+      setDeletingId(id);
+      await apiClient.delete(`/Comment/admin/${id}`);
+      setComments(comments.filter(c => c.id !== id));
+      toast.success('Comment deleted successfully');
+    } catch (error: any) {
+      const message = error?.response?.data?.message || 'Failed to delete comment';
+      toast.error(message);
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric', 
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
     });
   };
 
-  const ReportCard = ({ report }: { report: Report }) => {
-    const content = getReportedContent(report);
-    const isSelected = selectedReport?.id === report.id;
+  // Filter comments based on search
+  const filteredComments = comments.filter(c =>
+    c.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    c.authorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    c.postTitle.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-    return (
-      <Card 
-        className={`cursor-pointer transition-all duration-300 hover:shadow-lg ${
-          isSelected ? 'border-primary border-2' : ''
-        }`}
-        onClick={() => setSelectedReport(report)}
-      >
-        <CardContent className="p-4">
-          <div className="flex items-start gap-4">
-            <div className={`flex-shrink-0 h-12 w-12 rounded-full flex items-center justify-center ${
-              report.status === 'pending' ? 'bg-yellow-100' :
-              report.status === 'reviewed' ? 'bg-blue-100' :
-              'bg-green-100'
-            }`}>
-              {report.status === 'pending' && <AlertTriangle className="h-5 w-5 text-yellow-600" />}
-              {report.status === 'reviewed' && <Eye className="h-5 w-5 text-blue-600" />}
-              {report.status === 'resolved' && <CheckCircle className="h-5 w-5 text-green-600" />}
-            </div>
-
-            <div className="flex-1 min-w-0">
-              <div className="flex items-start justify-between gap-4 mb-2">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <Badge variant={
-                      report.status === 'pending' ? 'destructive' :
-                      report.status === 'reviewed' ? 'default' :
-                      'secondary'
-                    }>
-                      {report.status}
-                    </Badge>
-                    <Badge variant="outline" className="capitalize">
-                      {report.contentType}
-                    </Badge>
-                  </div>
-                  <h4 className="font-medium truncate">
-                    {content?.title || `Reported ${report.contentType}`}
-                  </h4>
-                </div>
-              </div>
-
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Flag className="h-4 w-4" />
-                  <span>Reason: {report.reason}</span>
-                </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Clock className="h-4 w-4" />
-                  <span>{formatDate(report.createdAt)}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  };
+  // Group by post for stats
+  const postsCount = new Set(comments.map(c => c.postId)).size;
+  const authorsCount = new Set(comments.map(c => c.authorId)).size;
 
   return (
     <div className="min-h-screen bg-muted/30">
       <div className="container mx-auto px-4 py-8">
-        {/* Header with Back Button */}
+        {/* Header */}
         <div className="mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
           <Button
             variant="ghost"
@@ -157,9 +109,9 @@ export function ContentModerationPage({ onNavigate }: ContentModerationPageProps
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Dashboard
           </Button>
-          <h1 className="mb-2">Content Moderation</h1>
+          <h1 className="mb-2">Comments Moderation</h1>
           <p className="text-muted-foreground">
-            Review and manage reported content
+            Review and manage user comments across all articles
           </p>
         </div>
 
@@ -169,10 +121,10 @@ export function ContentModerationPage({ onNavigate }: ContentModerationPageProps
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Pending</p>
-                  <p className="text-2xl font-bold text-yellow-600">{pendingReports.length}</p>
+                  <p className="text-sm text-muted-foreground">Total Comments</p>
+                  <p className="text-2xl font-bold">{comments.length}</p>
                 </div>
-                <AlertTriangle className="h-8 w-8 text-yellow-600" />
+                <MessageCircle className="h-8 w-8 text-blue-600" />
               </div>
             </CardContent>
           </Card>
@@ -180,10 +132,10 @@ export function ContentModerationPage({ onNavigate }: ContentModerationPageProps
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Reviewed</p>
-                  <p className="text-2xl font-bold">{reviewedReports.length}</p>
+                  <p className="text-sm text-muted-foreground">Articles with Comments</p>
+                  <p className="text-2xl font-bold">{postsCount}</p>
                 </div>
-                <Eye className="h-8 w-8 text-blue-600" />
+                <FileText className="h-8 w-8 text-purple-600" />
               </div>
             </CardContent>
           </Card>
@@ -191,8 +143,8 @@ export function ContentModerationPage({ onNavigate }: ContentModerationPageProps
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Resolved</p>
-                  <p className="text-2xl font-bold text-green-600">{resolvedReports.length}</p>
+                  <p className="text-sm text-muted-foreground">Active Commenters</p>
+                  <p className="text-2xl font-bold">{authorsCount}</p>
                 </div>
                 <CheckCircle className="h-8 w-8 text-green-600" />
               </div>
@@ -200,185 +152,117 @@ export function ContentModerationPage({ onNavigate }: ContentModerationPageProps
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Reports List */}
-          <div className="lg:col-span-1">
-            <Tabs defaultValue="pending" className="animate-in fade-in slide-in-from-bottom-4 duration-700 delay-150">
-              <TabsList className="mb-4 w-full">
-                <TabsTrigger value="pending" className="flex-1">
-                  Pending ({pendingReports.length})
-                </TabsTrigger>
-                <TabsTrigger value="all" className="flex-1">
-                  All ({reports.length})
-                </TabsTrigger>
-              </TabsList>
+        {/* Search */}
+        <Card className="mb-6">
+          <CardContent className="pt-6">
+            <input
+              type="text"
+              placeholder="Search by content, author, or article title..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full px-4 py-2 border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            {searchTerm && (
+              <p className="text-sm text-muted-foreground mt-2">
+                Showing {filteredComments.length} of {comments.length} comments
+              </p>
+            )}
+          </CardContent>
+        </Card>
 
-              <TabsContent value="pending" className="space-y-3">
-                {pendingReports.length > 0 ? (
-                  pendingReports.map((report, index) => (
-                    <div 
-                      key={report.id}
-                      className="animate-in fade-in slide-in-from-left-2 duration-500"
-                      style={{ animationDelay: `${index * 50}ms` }}
-                    >
-                      <ReportCard report={report} />
-                    </div>
-                  ))
-                ) : (
-                  <Card className="p-12 text-center">
-                    <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-600" />
-                    <p className="text-muted-foreground">No pending reports</p>
-                  </Card>
-                )}
-              </TabsContent>
-
-              <TabsContent value="all" className="space-y-3">
-                {reports.map((report, index) => (
-                  <div 
-                    key={report.id}
+        {/* Comments List */}
+        <Card className="animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200">
+          <CardHeader>
+            <CardTitle>All Comments ({filteredComments.length})</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">Loading comments...</p>
+              </div>
+            ) : filteredComments.length === 0 ? (
+              <div className="text-center py-12">
+                <MessageCircle className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                <p className="text-muted-foreground">
+                  {searchTerm ? 'No comments match your search' : 'No comments yet'}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredComments.map((comment, index) => (
+                  <div
+                    key={comment.id}
                     className="animate-in fade-in slide-in-from-left-2 duration-500"
                     style={{ animationDelay: `${index * 50}ms` }}
                   >
-                    <ReportCard report={report} />
+                    <Card className="hover:shadow-md transition-shadow">
+                      <CardContent className="p-4">
+                        <div className="flex items-start gap-4">
+                          {/* Avatar */}
+                          <UserAvatar 
+                            name={comment.authorName} 
+                            avatar={comment.authorAvatar} 
+                            size="md" 
+                          />
+
+                          {/* Content */}
+                          <div className="flex-1 min-w-0">
+                            {/* Header: Author + Article + Date */}
+                            <div className="flex items-start justify-between gap-2 mb-2">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-medium">{comment.authorName}</span>
+                                  <span className="text-xs text-muted-foreground">on</span>
+                                  <Badge 
+                                    variant="outline" 
+                                    className="cursor-pointer hover:bg-muted"
+                                    onClick={() => onNavigate('article', comment.postId)}
+                                  >
+                                    {comment.postTitle}
+                                  </Badge>
+                                </div>
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+                                  <Clock className="h-3 w-3" />
+                                  <span>{formatDate(comment.createdAt)}</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Comment Content */}
+                            <p className="text-sm mb-3 break-words">{comment.content}</p>
+
+                            {/* Actions */}
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => onNavigate('article', comment.postId)}
+                                className="gap-2"
+                              >
+                                <Eye className="h-3 w-3" />
+                                View Article
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => handleDelete(comment.id)}
+                                disabled={deletingId === comment.id}
+                                className="gap-2"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                                {deletingId === comment.id ? 'Deleting...' : 'Delete'}
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
                   </div>
                 ))}
-              </TabsContent>
-            </Tabs>
-          </div>
-
-          {/* Report Details */}
-          <Card className="lg:col-span-2 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200">
-            {selectedReport ? (
-              <>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle>Report Details</CardTitle>
-                    <Badge variant={
-                      selectedReport.status === 'pending' ? 'destructive' :
-                      selectedReport.status === 'reviewed' ? 'default' :
-                      'secondary'
-                    }>
-                      {selectedReport.status}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* Report Info */}
-                  <div className="space-y-4">
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-1">Content Type</p>
-                      <Badge variant="outline" className="capitalize">
-                        {selectedReport.contentType}
-                      </Badge>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-1">Reason</p>
-                      <p>{selectedReport.reason}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-1">Reported At</p>
-                      <p>{formatDate(selectedReport.createdAt)}</p>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  {/* Content Preview */}
-                  {selectedReport.contentType === 'article' && (
-                    <>
-                      <div>
-                        <p className="text-sm text-muted-foreground mb-3">Reported Content</p>
-                        {(() => {
-                          const article = getReportedContent(selectedReport);
-                          return article ? (
-                            <Card className="border-2">
-                              <CardContent className="pt-6">
-                                <div className="flex gap-4">
-                                  <img 
-                                    src={article.coverImage} 
-                                    alt={article.title}
-                                    className="w-24 h-24 rounded-lg object-cover"
-                                  />
-                                  <div className="flex-1">
-                                    <h4 className="mb-2">{article.title}</h4>
-                                    <p className="text-sm text-muted-foreground line-clamp-2">
-                                      {article.excerpt}
-                                    </p>
-                                    <Button 
-                                      variant="link" 
-                                      className="px-0 mt-2"
-                                      onClick={() => onNavigate('article', article.id)}
-                                    >
-                                      <Eye className="h-4 w-4 mr-2" />
-                                      View Full Article
-                                    </Button>
-                                  </div>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          ) : (
-                            <p className="text-muted-foreground">Content not found</p>
-                          );
-                        })()}
-                      </div>
-
-                      <Separator />
-                    </>
-                  )}
-
-                  {/* Moderation Notes */}
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-3">Moderation Notes</p>
-                    <Textarea
-                      placeholder="Add notes about this report..."
-                      value={moderationNote}
-                      onChange={(e) => setModerationNote(e.target.value)}
-                      rows={4}
-                    />
-                  </div>
-
-                  {/* Actions */}
-                  {selectedReport.status === 'pending' && (
-                    <div className="flex flex-wrap gap-3">
-                      <Button 
-                        onClick={() => handleApprove(selectedReport.id)}
-                        className="gap-2"
-                      >
-                        <CheckCircle className="h-4 w-4" />
-                        Approve & Resolve
-                      </Button>
-                      <Button 
-                        variant="outline"
-                        onClick={() => handleReject(selectedReport.id)}
-                        className="gap-2"
-                      >
-                        <XCircle className="h-4 w-4" />
-                        Reject Report
-                      </Button>
-                      <Button 
-                        variant="destructive"
-                        onClick={() => handleDeleteContent(selectedReport.id)}
-                        className="gap-2"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        Delete Content
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </>
-            ) : (
-              <CardContent className="flex items-center justify-center h-96">
-                <div className="text-center">
-                  <Flag className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                  <p className="text-muted-foreground">
-                    Select a report to view details and take action
-                  </p>
-                </div>
-              </CardContent>
+              </div>
             )}
-          </Card>
-        </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

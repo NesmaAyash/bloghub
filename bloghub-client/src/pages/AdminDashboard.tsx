@@ -128,20 +128,6 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
       <p className="text-xs text-muted-foreground mt-1">Click to moderate →</p>
     </CardContent>
   </Card>
-
-  <Card 
-    className="cursor-pointer hover:shadow-lg hover:scale-105 transition-all duration-300" 
-    onClick={() => onNavigate('content-moderation')}
-  >
-    <CardHeader className="flex flex-row items-center justify-between pb-2">
-      <CardTitle className="text-sm font-medium text-muted-foreground">Pending Reports</CardTitle>
-      <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-    </CardHeader>
-    <CardContent>
-      <div className="text-2xl font-bold text-yellow-600">{stats.pendingReports}</div>
-      <p className="text-xs text-muted-foreground mt-1">Click to review →</p>
-    </CardContent>
-  </Card>
 </div>
 
         {/* Charts */}
