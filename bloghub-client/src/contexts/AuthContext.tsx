@@ -27,6 +27,16 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// ✅ Helper: استخراج رسالة الخطأ من axios error
+const extractErrorMessage = (error: any, fallback: string): string => {
+  return (
+    error?.response?.data?.message ||      // Backend message (الأهم)
+    error?.response?.data?.title ||         // ASP.NET validation errors
+    error?.message ||                       // Generic error message
+    fallback                                // Default message
+  );
+};
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -37,12 +47,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const storedUser = authService.getStoredUser();
         if (storedUser && authService.isAuthenticated()) {
-          // Convert backend user format to our User type
           const mappedUser: User = {
             id: storedUser.id,
             name: storedUser.name,
             email: storedUser.email,
-           
             role: (storedUser.role ?? 'author').toLowerCase() as UserRole,
             avatar: storedUser.avatar,
             bio: storedUser.bio,
@@ -56,7 +64,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               id: currentUser.id,
               name: currentUser.name,
               email: currentUser.email,
-              // ✅ بعد
               role: (currentUser.role ?? 'author').toLowerCase() as UserRole,
               avatar: currentUser.avatar,
               bio: currentUser.bio,
@@ -83,20 +90,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(true);
       const response = await authService.login({ email, password });
       
-      // Map backend user to our User type
-     const mappedUser: User = {
-  id: String(response.id),
-  name: response.name,
-  email: response.email,
-  role: (response.role ?? 'author').toLowerCase() as UserRole,
-  avatar: response.avatar,
-  bio: response.bio,
-};
+      const mappedUser: User = {
+        id: String(response.id),
+        name: response.name,
+        email: response.email,
+        role: (response.role ?? 'author').toLowerCase() as UserRole,
+        avatar: response.avatar,
+        bio: response.bio,
+      };
       
       setUser(mappedUser);
       toast.success(`Welcome back, ${mappedUser.name}!`);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Login failed';
+    } catch (error: any) {
+      const errorMessage = extractErrorMessage(error, 'Login failed');
       toast.error(errorMessage);
       throw error;
     } finally {
@@ -116,67 +122,83 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-const register = async (name: string, email: string, password: string): Promise<void> => {
-  try {
-    setIsLoading(true);
-    await authService.register({
-      name,
-      email,
-      password,
-      confirmPassword: password,
-    });
-    
-    // بعد التسجيل، سجّل دخول تلقائياً
-    await login(email, password);
-    toast.success(`Welcome, ${name}!`);
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Registration failed';
-    toast.error(errorMessage);
-    throw error;
-  } finally {
-    setIsLoading(false);
-  }
-};
-
-const updateProfile = async (updates: Partial<User>): Promise<void> => {
-  if (!user) return;
-  
-  try {
-    // ✅ Update React state
-    const updatedUser = { ...user, ...updates };
-    setUser(updatedUser);
-    
-    // ✅ Update localStorage بنفس الـ format المتوقع
-    const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
-    const newStoredUser = {
-      ...storedUser,
-      name: updatedUser.name,
-      email: updatedUser.email,
-      bio: updatedUser.bio,
-      avatar: updatedUser.avatar,
-      role: updatedUser.role,
-    };
-    localStorage.setItem('user', JSON.stringify(newStoredUser));
-    
-    // ⚠️ ما نعرض toast هنا لأن handleSave في ProfilePage يعرضها بنفسه
-    // (تجنّب رسالتين)
-  } catch (error) {
-    // Revert on error
-    const storedUser = authService.getStoredUser();
-    if (storedUser) {
-      const revertedUser: User = {
-        id: storedUser.id,
-        name: storedUser.name,
-        email: storedUser.email,
-        role: (storedUser.role ?? 'author').toLowerCase() as UserRole,
-        avatar: storedUser.avatar,
-        bio: storedUser.bio,
+  // ✅ FIXED: Register يحفظ user مباشرة من response، بدون double login
+  const register = async (name: string, email: string, password: string): Promise<void> => {
+    try {
+      setIsLoading(true);
+      
+      // ✅ Register يرجّع AuthResponse فيه الـ user data والـ token
+      const response = await authService.register({
+        name,
+        email,
+        password,
+        confirmPassword: password,
+      });
+      
+      // ✅ تحقّق إضافي إن الـ response valid
+      if (!response || !response.token) {
+        throw new Error('Registration failed - invalid response');
+      }
+      
+      // ✅ خزّن الـ user مباشرة في React state
+      const mappedUser: User = {
+        id: String(response.id),
+        name: response.name,
+        email: response.email,
+        role: (response.role ?? 'author').toLowerCase() as UserRole,
+        avatar: response.avatar,
+        bio: response.bio,
       };
-      setUser(revertedUser);
+      
+      setUser(mappedUser);
+      toast.success(`Welcome, ${response.name}!`);
+      
+    } catch (error: any) {
+      const errorMessage = extractErrorMessage(error, 'Registration failed');
+      toast.error(errorMessage);
+      throw error;
+    } finally {
+      setIsLoading(false);
     }
-    throw error;
-  }
-};
+  };
+
+  const updateProfile = async (updates: Partial<User>): Promise<void> => {
+    if (!user) return;
+    
+    try {
+      // ✅ Update React state
+      const updatedUser = { ...user, ...updates };
+      setUser(updatedUser);
+      
+      // ✅ Update localStorage
+      const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+      const newStoredUser = {
+        ...storedUser,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        bio: updatedUser.bio,
+        avatar: updatedUser.avatar,
+        role: updatedUser.role,
+      };
+      localStorage.setItem('user', JSON.stringify(newStoredUser));
+      
+    } catch (error) {
+      // Revert on error
+      const storedUser = authService.getStoredUser();
+      if (storedUser) {
+        const revertedUser: User = {
+          id: storedUser.id,
+          name: storedUser.name,
+          email: storedUser.email,
+          role: (storedUser.role ?? 'author').toLowerCase() as UserRole,
+          avatar: storedUser.avatar,
+          bio: storedUser.bio,
+        };
+        setUser(revertedUser);
+      }
+      throw error;
+    }
+  };
 
   const userRole: UserRole = user?.role || 'visitor';
 

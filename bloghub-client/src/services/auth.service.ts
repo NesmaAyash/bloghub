@@ -8,9 +8,7 @@
  * - Token refresh
  * - Password management
  */
-/**
- * Authentication Service
- */
+
 import apiClient, { handleApiError, clearAuthData } from './api.client';
 import { API_ENDPOINTS } from '../config/api.config';
 import {
@@ -35,15 +33,21 @@ class AuthService {
         credentials
       );
 
+      // ✅ تحقّق إن الـ response valid
+      if (!response.data || !response.data.token) {
+        throw new Error('Login failed - invalid response');
+      }
+
       const { token, refreshToken, ...userData } = response.data;
 
       localStorage.setItem('accessToken', token);
-      localStorage.setItem('refreshToken', refreshToken);
+      localStorage.setItem('refreshToken', refreshToken || '');
       localStorage.setItem('user', JSON.stringify(userData));
 
       return response.data;
     } catch (error) {
-      throw new Error(handleApiError(error));
+      // ✅ ارمي الـ axios error كاملاً (مع response.data.message)
+      throw error;
     }
   }
 
@@ -57,15 +61,22 @@ class AuthService {
         userData
       );
 
+      // ✅ تحقّق إن الـ response valid (فيه token)
+      // لو Backend رجّع 200 OK لكن بدون token (مستحيل لكن للأمان)
+      if (!response.data || !response.data.token) {
+        throw new Error('Registration failed - no token received');
+      }
+
       const { token, refreshToken, ...userDataFromApi } = response.data;
 
       localStorage.setItem('accessToken', token);
-      localStorage.setItem('refreshToken', refreshToken);
+      localStorage.setItem('refreshToken', refreshToken || '');
       localStorage.setItem('user', JSON.stringify(userDataFromApi));
 
       return response.data;
     } catch (error) {
-      throw new Error(handleApiError(error));
+      // ✅ ارمي الـ axios error كاملاً (مع response.data.message)
+      throw error;
     }
   }
 
@@ -88,11 +99,10 @@ class AuthService {
   async getCurrentUser(): Promise<UserDto> {
     try {
       const response = await apiClient.get<UserDto>(API_ENDPOINTS.AUTH.ME);
-      //localStorage.setItem('Author', JSON.stringify(response.data));
       localStorage.setItem('user', JSON.stringify(response.data));
       return response.data;
     } catch (error) {
-      throw new Error(handleApiError(error));
+      throw error;
     }
   }
 
@@ -103,7 +113,7 @@ class AuthService {
     try {
       await apiClient.post(API_ENDPOINTS.AUTH.CHANGE_PASSWORD, data);
     } catch (error) {
-      throw new Error(handleApiError(error));
+      throw error;
     }
   }
 
@@ -119,14 +129,13 @@ class AuthService {
 
       const { token, refreshToken: newRefreshToken, ...userData } = response.data;
       localStorage.setItem('accessToken', token);
-      localStorage.setItem('refreshToken', newRefreshToken);
+      localStorage.setItem('refreshToken', newRefreshToken || '');
       localStorage.setItem('user', JSON.stringify(userData));
-
 
       return response.data;
     } catch (error) {
       clearAuthData();
-      throw new Error(handleApiError(error));
+      throw error;
     }
   }
 
