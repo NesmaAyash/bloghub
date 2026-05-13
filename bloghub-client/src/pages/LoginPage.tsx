@@ -17,6 +17,7 @@ export function LoginPage({ onNavigate }: LoginPageProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
   const validateForm = () => {
@@ -46,13 +47,20 @@ export function LoginPage({ onNavigate }: LoginPageProps) {
     }
 
     try {
-      // Call async login
+      setIsSubmitting(true);
+      
+      // ✅ AuthContext.login يعرض toasts بنفسه (success أو error)
       await login(email, password);
-      // Success toast is handled in AuthContext
+      
+      // ✅ Navigate فقط بعد ما الـ login ينجح
       onNavigate('author-dashboard');
+      
     } catch (error) {
-      // Error toast is handled in AuthContext
+      // ❌ Login فشل
+      // الـ error toast تم عرضه من AuthContext
       console.error('Login failed:', error);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -135,29 +143,9 @@ export function LoginPage({ onNavigate }: LoginPageProps) {
                 )}
               </div>
 
-              {/* Submit Button */}
-              <Button type="submit" className="w-full">
-                Sign In as Author
-              </Button>
-
-              {/* Demo Admin Login */}
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full"
-                onClick={(e: React.MouseEvent<HTMLButtonElement>) => handleSubmit(e, 'admin')}
-              >
-                Sign In as Admin (Demo)
-              </Button>
-
-              {/* Submit Button */}
-              <Button type="submit" className="w-full">
-                Sign In
-              </Button>
-
-              {/* Submit Button */}
-              <Button type="submit" className="w-full">
-                Sign In
+              {/* ✅ Submit Button — واحد فقط، disabled أثناء التحميل */}
+              <Button type="submit" className="w-full" disabled={isSubmitting}>
+                {isSubmitting ? 'Signing In...' : 'Sign In'}
               </Button>
             </form>
 
@@ -173,15 +161,6 @@ export function LoginPage({ onNavigate }: LoginPageProps) {
                 Sign up
               </button>
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Demo Credentials */}
-        <Card className="mt-4 bg-muted/50">
-          <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground text-center mb-2">
-              💡 Demo Mode: Enter any email and password (min 6 chars)
-            </p>
           </CardContent>
         </Card>
       </div>

@@ -64,19 +64,29 @@ export function RegisterPage({ onNavigate }: RegisterPageProps) {
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
+const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
 
-    if (!validateForm()) {
-      return;
-    }
+  if (!validateForm()) {
+    return;
+  }
 
-    // Mock registration
-    register(name, email, password);
-    toast.success('Account created successfully!');
+  try {
+    setIsSubmitting(true);
+    
+    await register(name, email, password);
+    
     onNavigate('author-dashboard');
-  };
+    
+  } catch (error) {
+    console.error('Registration failed:', error);
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-muted/50 to-background flex items-center justify-center py-12 px-4">
@@ -243,9 +253,9 @@ export function RegisterPage({ onNavigate }: RegisterPageProps) {
               </div>
 
               {/* Submit Button */}
-              <Button type="submit" className="w-full">
-                Create Account
-              </Button>
+              <Button type="submit" className="w-full" disabled={isSubmitting}>
+  {isSubmitting ? 'Creating Account...' : 'Create Account'}
+</Button>
             </form>
 
             <Separator className="my-6" />
