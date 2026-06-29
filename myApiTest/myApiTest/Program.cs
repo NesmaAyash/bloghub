@@ -24,20 +24,26 @@ if (!string.IsNullOrEmpty(port))
 
 // Add services to the container.
 builder.Services.AddScoped<IImageInterface, ImageService>();
-
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowMyReact",
         policy => policy
-            .WithOrigins(
-                "http://localhost:3000",
-                "http://localhost:5173",
-                "https://*.vercel.app",
-                "https://bloghub-mu-olive.vercel.app"
-            )
-            .SetIsOriginAllowedToAllowWildcardSubdomains()
+            .SetIsOriginAllowed(origin =>
+            {
+                // ✅ Allow localhost (development)
+                if (origin.StartsWith("http://localhost:")) return true;
+
+                // ✅ Allow any vercel.app subdomain (production + preview)
+                if (origin.EndsWith(".vercel.app")) return true;
+
+                // ✅ Allow specific Vercel deployment
+                if (origin == "https://bloghub-mu-olive.vercel.app") return true;
+
+                return false;
+            })
             .AllowAnyHeader()
-            .AllowAnyMethod());
+            .AllowAnyMethod()
+            .AllowCredentials());
 });
 //builder.Services.AddControllers()
 //.AddJsonOptions(x => x.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles);
