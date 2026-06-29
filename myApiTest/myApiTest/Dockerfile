@@ -11,6 +11,10 @@ FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
 COPY --from=build /app/publish .
 
+# ✅ Create wwwroot directories (needed for image uploads)
+RUN mkdir -p /app/wwwroot/Images/Avatars
+RUN mkdir -p /app/wwwroot/Images/Posts
+
 ENV ASPNETCORE_URLS=http://+:8080
 EXPOSE 8080
 

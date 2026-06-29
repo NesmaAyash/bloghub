@@ -14,6 +14,7 @@ var port = Environment.GetEnvironmentVariable("PORT");
 // ✅ PostgreSQL DateTime handling
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
+
 var builder = WebApplication.CreateBuilder(args);
 
 // ✅ Use Render's PORT if available
@@ -21,6 +22,16 @@ if (!string.IsNullOrEmpty(port))
 {
     builder.WebHost.UseUrls($"http://+:{port}");
 }
+
+// ✅ Ensure wwwroot exists (for image uploads in Docker)
+var wwwrootPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+if (!Directory.Exists(wwwrootPath))
+{
+    Directory.CreateDirectory(wwwrootPath);
+    Directory.CreateDirectory(Path.Combine(wwwrootPath, "Images", "Avatars"));
+    Directory.CreateDirectory(Path.Combine(wwwrootPath, "Images", "Posts"));
+}
+builder.WebHost.UseWebRoot(wwwrootPath);
 
 // Add services to the container.
 builder.Services.AddScoped<IImageInterface, ImageService>();
