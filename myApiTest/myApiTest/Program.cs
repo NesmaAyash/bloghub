@@ -7,7 +7,20 @@ using myApiTest.Interface;
 using myApiTest.Models;
 using System.Text;
 
+
+// ✅ Render PORT support
+var port = Environment.GetEnvironmentVariable("PORT");
+
+// ✅ PostgreSQL DateTime handling
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
 var builder = WebApplication.CreateBuilder(args);
+
+// ✅ Use Render's PORT if available
+if (!string.IsNullOrEmpty(port))
+{
+    builder.WebHost.UseUrls($"http://+:{port}");
+}
 
 // Add services to the container.
 builder.Services.AddScoped<IImageInterface, ImageService>();
@@ -18,7 +31,9 @@ builder.Services.AddCors(options =>
         policy => policy
             .WithOrigins(
                 "http://localhost:3000",
-                "https://*.vercel.app"  // ← للـ Frontend بعد نشره
+                "http://localhost:5173",
+                "https://*.vercel.app",
+                "https://bloghub-mu-olive.vercel.app"
             )
             .SetIsOriginAllowedToAllowWildcardSubdomains()
             .AllowAnyHeader()
@@ -35,10 +50,13 @@ builder.Services.AddControllers()
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
-builder.Services.AddDbContext<BlogDbContext>(
+/*builder.Services.AddDbContext<BlogDbContext>(
     options => options.UseSqlServer(
         builder.Configuration.GetConnectionString("Connection")
-   ) );
+   ) );*/
+
+builder.Services.AddDbContext<BlogDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("Connection")));
 
 builder.Services.Configure<Microsoft.AspNetCore.Mvc.MvcOptions>(options =>
 {
@@ -71,7 +89,11 @@ var app = builder.Build();
 app.UseSwagger();
 app.UseSwaggerUI();
 
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection();
+if (app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseCors("AllowMyReact");
 
