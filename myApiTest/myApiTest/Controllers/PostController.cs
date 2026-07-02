@@ -39,7 +39,7 @@ namespace myApiTest.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(new { message = ex.Message }); // ← مؤقتاً عشان نشوف الخطأ
+                return BadRequest(new { message = ex.Message }); 
             }
         }
 
@@ -96,7 +96,7 @@ namespace myApiTest.Controllers
             }
         }
 
-        // 🆕 Helper method (ضيفها في نفس الـ Controller)
+      
         private string GenerateExcerpt(string content, int maxLength = 150)
         {
             if (string.IsNullOrWhiteSpace(content))
@@ -327,13 +327,11 @@ namespace myApiTest.Controllers
         {
             try
             {
-                // 1. جلب البيانات من قاعدة البيانات (تأكد من كتابة Posts بشكل صحيح كما في الـ Model)
                 var authorsData = _blogDb.Authors
                     .Include(x => x.posts)
                     .Where(y => y.Name.Contains(searchTextAuthor))
                     .ToList();
 
-                // 2. تحويل البيانات إلى DTO (الـ DTO هو من سيتحكم بإخفاء الـ Id)
                 var authorsDto = _map.Map<List<AuthorDto>>(authorsData);
 
                 if (authorsDto.Count == 0)

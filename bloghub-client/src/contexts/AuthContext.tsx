@@ -111,16 +111,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async (): Promise<void> => {
-    try {
-      await authService.logout();
-      setUser(null);
-      toast.success('Logged out successfully');
-    } catch (error) {
-      console.error('Logout error:', error);
-      // Still clear local state even if API call fails
-      setUser(null);
-    }
-  };
+  try {
+    // ✅ Clear all like states from localStorage
+    Object.keys(localStorage)
+      .filter(key => key.startsWith('liked_'))
+      .forEach(key => localStorage.removeItem(key));
+    
+    await authService.logout();
+    setUser(null);
+    toast.success('Logged out successfully');
+  } catch (error) {
+    console.error('Logout error:', error);
+    // Still clear local state even if API call fails
+    setUser(null);
+  }
+};
 
   // ✅ FIXED: Register يحفظ user مباشرة من response، بدون double login
   const register = async (name: string, email: string, password: string): Promise<void> => {

@@ -22,9 +22,16 @@ interface ArticleDetailsPageProps {
 
 export function ArticleDetailsPage({ articleId, onNavigate }: ArticleDetailsPageProps) {
   const { user } = useAuth();
-  const [liked, setLiked] = useState(() => {
-  return localStorage.getItem(`liked_${articleId}`) === 'true';
-});
+const [liked, setLiked] = useState(false);
+
+// ✅ Update liked state when user or article changes
+useEffect(() => {
+  if (user && articleId) {
+    setLiked(localStorage.getItem(`liked_${user.id}_${articleId}`) === 'true');
+  } else {
+    setLiked(false);
+  }
+}, [user, articleId]);
   const [commentText, setCommentText] = useState('');
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [article, setArticle] = useState<any>(null);
@@ -83,21 +90,25 @@ const handleLike = async () => {
 
   try {
     setIsLiking(true);
+    
     if (liked) {
       // ✅ Unlike
       await articleService.unlikeArticle(articleId);
-      setArticle((prev: any) => ({ ...prev, likes: Math.max(0, prev.likes - 1) }));
+      localStorage.removeItem(`liked_${user.id}_${articleId}`);
       setLiked(false);
-      localStorage.removeItem(`liked_${articleId}`); // ← احذف من localStorage
       toast.success('Removed from likes');
     } else {
       // ✅ Like
       await articleService.likeArticle(articleId);
-      setArticle((prev: any) => ({ ...prev, likes: prev.likes + 1 }));
+      localStorage.setItem(`liked_${user.id}_${articleId}`, 'true');
       setLiked(true);
-      localStorage.setItem(`liked_${articleId}`, 'true'); // ← احفظ في localStorage
-      toast.success('Article liked!');
+      toast.success('Article liked! ❤️');
     }
+    
+    // ✅ Refresh article to get real count from Backend
+    const updated = await articleService.getArticleById(articleId);
+    setArticle(updated);
+    
   } catch (error) {
     toast.error('Failed to update like');
   } finally {
@@ -221,10 +232,10 @@ const handleComment = async () => {
               </div>
               <div className="flex items-center gap-4 text-sm text-muted-foreground">
                 <span className="flex items-center gap-1"><Eye className="h-4 w-4" />{article.views || 0}</span>
-                <span className="flex items-center gap-1">
-                  <Heart className={`h-4 w-4 ${liked ? 'fill-red-500 text-red-500' : ''}`} />
-                  {article.likes || 0}
-                </span>
+            <span className="flex items-center gap-1">
+  <Heart className={`h-4 w-4 ${liked ? 'fill-red-500 text-red-500' : ''}`} />
+  {article.likes || 0}
+</span>
                
 <span className="flex items-center gap-1">
   <MessageCircle className="h-4 w-4" />
@@ -234,14 +245,14 @@ const handleComment = async () => {
             </div>
 
             <div className="flex items-center gap-3 pt-6">
-          <Button
+      <Button
   onClick={handleLike}
   variant={liked ? 'default' : 'outline'}
   className="gap-2"
   disabled={isLiking}
 >
   <Heart className={`h-4 w-4 ${liked ? 'fill-current' : ''}`} />
-  {liked ? 'Liked ❤️' : 'Like'}
+  {isLiking ? '...' : (liked ? 'Liked ❤️' : 'Like')}
 </Button>
               <div className="relative">
                 <Button onClick={() => setShowShareMenu(!showShareMenu)} variant="outline" className="gap-2">
