@@ -151,7 +151,7 @@ export function Navigation({ onNavigate, currentPage, unreadNotifications = 0 }:
                   >
                     <Avatar className="h-10 w-10 ring-2 ring-background shadow-md">
                       <AvatarImage src={user.avatar} alt={user.name} />
-                     <UserAvatar name={user.name} avatar={user.avatar} size="md" className="ring-2 ring-background shadow-md" />                        {user.name[0]}
+                      <UserAvatar name={user.name} avatar={user.avatar} size="md" className="ring-2 ring-background shadow-md" />                        {user.name[0]}
                       
                     </Avatar>
                   </Button>

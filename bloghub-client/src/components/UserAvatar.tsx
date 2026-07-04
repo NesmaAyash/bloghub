@@ -41,24 +41,29 @@ export function UserAvatar({ name, avatar, size = 'md', className = '' }: UserAv
     fullAvatarUrl &&
     !fullAvatarUrl.includes('dicebear') &&
     !imageFailed;
-
+  const containerClasses = `relative flex shrink-0 overflow-hidden rounded-full ring-2 ring-background shadow-md ${sizeClasses[size]} ${className}`;
+ 
   if (hasValidAvatar) {
     return (
-      <img
-        src={fullAvatarUrl}
-        alt={name}
-        className={`${sizeClass} rounded-full object-cover ${className}`}
-        onError={() => setImageFailed(true)}
-      />
+      <span className={containerClasses}>
+        <img
+          src={fullAvatarUrl!}
+          alt={name}
+          className="aspect-square h-full w-full object-cover"
+          onError={() => setImageFailed(true)}
+        />
+      </span>
     );
   }
 
   return (
-    <div
-      className={`${sizeClass} rounded-full flex items-center justify-center text-white font-semibold ${className}`}
+    <span 
+      className={containerClasses}
       style={{ backgroundColor: bgColor }}
     >
-      {initial}
-    </div>
+      <span className="flex h-full w-full items-center justify-center text-white font-semibold">
+        {initial}
+      </span>
+    </span>
   );
 }
